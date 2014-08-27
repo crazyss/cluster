@@ -1,4 +1,29 @@
 #!/bin/bash
+A="password	required	/lib64/security/pam_cracklib.so retry=3 minlen=12 difok=3 ucredit=1 lcredit=2 dcredit=1 ocredit=1"
 
-
-cat /etc/issue
+if ! grep /lib64/security/pam_cracklib.so $1 >/dev/null; then 
+#   echo Put the correct line on to the first line of \"password\" management group
+   cat $1 | sed /^password/q > tmp0.file
+   TMP=`cat tmp0.file|wc -l`
+   LN=`expr $TMP \- 1`
+   head -n $LN $1 > tmp1.file
+   OLN=`cat $1 | wc -l`
+   cat $1 | tail -n `expr $OLN \- $LN` >tmp2.file
+   cat tmp1.file > final.file
+   echo $A >> final.file
+   cat tmp2.file >> final.file
+   rm tmp[012].file
+else
+#    echo Delete the original line and put the correct one on the same place
+   cat $1 | sed /pam_cracklib/q > tmp0.file
+   TMP=`cat tmp0.file|wc -l`
+   LN=`expr $TMP \- 1`
+   head -n $LN $1 > tmp1.file
+   OLN=`cat $1 | wc -l`
+   cat $1 | tail -n `expr $OLN \- $TMP` >tmp2.file
+   cat tmp1.file > final.file
+   echo $A >> final.file
+   cat tmp2.file >> final.file
+   rm tmp[012].file
+fi
+cat final.file
