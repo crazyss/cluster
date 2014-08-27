@@ -21,6 +21,7 @@
 
 set -o nounset                              # Treat unset variables as an error
 
+. lib/libs.sh
 
 usage()
 {
@@ -61,24 +62,12 @@ do
         esac
 done
 
-if ! [ -f ${TASKLIST} ]; then
-        echo "${TASKLIST} isn't a normal file." >&2
-        exit 1;
-fi
-if ! [ -f ${IPGROUP} ]; then
-        echo "${IPGROUP} isn't a normal file." >&2
-        exit 1;
-fi
-
-test 0 != `du ${TASKLIST} | awk '{print $1}'` || echo "${TASKLIST} is empty!!";exit 1
-test 0 != `du ${IPGROUP} | awk '{print $1}'` || echo "${IPGROUP} is empty!!";exit 1
+file_valid_check ${TASKLIST}
+file_valid_check ${IPGROUP}
 
 
-access -r ${TASKLIST}
-if [ $? -ne 0 ]; then
-        echo "${TASKLIST} can't read by permission"
-fi
-access -r ${IPGROUP}
-if [ $? -ne 0 ]; then
-        echo "${IPGROUP} can't read by permission"
-fi
+context_check_tasklist ${TASKLIST}
+context_check_ipgroup ${IPGROUP}
+
+
+file_transfer ${IPGROUP} ${TASKLIST}
