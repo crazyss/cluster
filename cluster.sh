@@ -70,4 +70,8 @@ context_check_tasklist ${TASKLIST}
 context_check_ipgroup ${IPGROUP}
 
 
-file_transfer ${IPGROUP} ${TASKLIST}
+file_transfer_taskcase ${IPGROUP} ${TASKLIST}
+file_transfer_tasklist ${IPGROUP} ${TASKLIST}
+file_transfer_engine ${IPGROUP} engine/go.sh
+
+run_taskcase ${IPGROUP} ${TASKLIST}

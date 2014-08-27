@@ -23,8 +23,10 @@ set -o nounset                              # Treat unset variables as an error
 REMOTE_BASE="/tmp"
 REMOTE_DIR="${REMOTE_BASE}/linx_task"
 REMOTE_DIR_taskcase="${REMOTE_DIR}/taskcase"
-REMOTE_DIR_tasklist="${REMOTE_DIR}/tasklist"
+REMOTE_DIR_tasklist="${REMOTE_DIR}/taskgroup"
 REMOTE_DIR_result="${REMOTE_DIR}/result"
+REMOTE_DIR_runtask="${REMOTE_DIR}/runtask"
+REMOTE_DIR_engine="${REMOTE_DIR}/engine"
 
 context_check_tasklist()
 {
@@ -67,7 +69,7 @@ check_remote_disk_space()
         free_space=`echo $disk_usage | awk -F " " '{print $4}'`
 
         if [ $free_space -lt 20 ];then
-                echo "remote host '$IP' have not enough disk space on ${REMOTE_BASE} for runing task" >&2
+                echo "remote host '$1' have not enough disk space on ${REMOTE_BASE} for runing task" >&2
                 exit 1;
         fi
 
@@ -78,7 +80,7 @@ _create_taskdir_to_remote_host()
 # $1: $IP
 # $2: $USER
 # $3: $PASSWORD
-        cmd="sshpass -p$3 ssh $2@$1 \"\"mkdir -p ${REMOTE_DIR};mkdir -p ${REMOTE_DIR_taskcase};mkdir -p ${REMOTE_DIR_tasklist};mkdir -p ${REMOTE_DIR_result}\"\""
+        cmd="sshpass -p$3 ssh $2@$1 \"\"mkdir -p ${REMOTE_DIR};mkdir -p ${REMOTE_DIR_taskcase};mkdir -p ${REMOTE_DIR_tasklist};mkdir -p ${REMOTE_DIR_result};mkdir -p ${REMOTE_DIR_runtask};mkdir -p ${REMOTE_DIR_engine}\"\""
 
         ${cmd} </dev/null
         if [ $? -ne 0 ];then
@@ -141,8 +143,53 @@ file_transfer_tasklist()
 {
 # $1: ${IPGROUP} file
 # $2: ${TASKLIST} file
-        file_valid_check "${file}"
+        file_valid_check "$2"
         if [ $? -eq 0 ];then
-                ssh_remote_scp "${file}" ${1} ${REMOTE_DIR_tasklist}
+                ssh_remote_scp "${2}" ${1} ${REMOTE_DIR_tasklist}
         fi
+}
+file_transfer_engine()
+{
+# $1: ${IPGROUP} file
+# $2: ${TASKLIST} file
+        file_valid_check "$2"
+        if [ $? -eq 0 ];then
+                ssh_remote_scp "${2}" ${1} ${REMOTE_DIR_engine}
+        fi
+}
+_run_tasklist_by_go_engine()
+{
+# $1: $IP
+# $2: $USER
+# $3: $PASSWORD
+# $4: TASKLIST
+
+cmd="sshpass -p$3 ssh $2@$1 \"\"${REMOTE_DIR_engine}/go.sh -t ${REMOTE_DIR}/$4\"\" < /dev/null"
+
+        $cmd
+        if [ $? -ne 0 ];then
+                echo "remote host '$1' run ${REMOTE_DIR_tasklist}/$4 task fail" >&2
+                exit 1;
+        fi
+
+        return 0
+}
+run_taskcase()
+{
+        # $1: ${IPGROUP} file
+        # $2: ${TASKLIST} file
+
+        while read textline
+        do
+                if [ "x" == "x${textline}" ] ;then
+                        continue
+                fi
+                IP=`echo $textline |  awk -F "," '{print $1}'`
+                USER=`echo $textline |  awk -F "," '{print $2}'`
+                PASSWORD=`echo $textline |  awk -F "," '{print $3}'`
+                _run_tasklist_by_go_engine $IP $USER $PASSWORD $2
+
+        done<$1
+
+
 }
