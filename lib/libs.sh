@@ -20,10 +20,11 @@
 
 set -o nounset                              # Treat unset variables as an error
 
-REMOTE_DIR="/tmp"
-REMOTE_DIR_testcase="/tmp/testcase"
-REMOTE_DIR_testlist="/tmp/testlist"
-REMOTE_DIR_result="/tmp/result"
+REMOTE_BASE="/tmp"
+REMOTE_DIR="${REMOTE_BASE}/linx_task"
+REMOTE_DIR_taskcase="${REMOTE_DIR}/taskcase"
+REMOTE_DIR_tasklist="${REMOTE_DIR}/tasklist"
+REMOTE_DIR_result="${REMOTE_DIR}/result"
 
 context_check_tasklist()
 {
@@ -60,12 +61,13 @@ check_remote_disk_space()
 # $2: $USER
 # $3: $PASSWORD
 
-        disk_usage=$(sshpass -p$3 ssh $2@$1 "LANG=C df -hm ${REMOTE_DIR} | tail -n 1" < /dev/null)
+        disk_usage=$(sshpass -p$3 ssh $2@$1 "LANG=C df -hm ${REMOTE_BASE} | tail -n 1" < /dev/null)
         #disk_usage=`LANG=C df -hm ${REMOTE_DIR} | tail -n 1`
+        free_space=0
         free_space=`echo $disk_usage | awk -F " " '{print $4}'`
 
         if [ $free_space -lt 20 ];then
-                echo "remote host '$IP' have not enough disk space on ${REMOTE_DIR} for runing task" >&2
+                echo "remote host '$IP' have not enough disk space on ${REMOTE_BASE} for runing task" >&2
                 exit 1;
         fi
 
@@ -76,7 +78,7 @@ _create_taskdir_to_remote_host()
 # $1: $IP
 # $2: $USER
 # $3: $PASSWORD
-        cmd="sshpass -p$3 ssh $2@$1 \"\"mkdir -p ${REMOTE_DIR};mkdir -p ${REMOTE_DIR_testcase};mkdir -p ${REMOTE_DIR_testlist};mkdir -p ${REMOTE_DIR_result}\"\""
+        cmd="sshpass -p$3 ssh $2@$1 \"\"mkdir -p ${REMOTE_DIR};mkdir -p ${REMOTE_DIR_taskcase};mkdir -p ${REMOTE_DIR_tasklist};mkdir -p ${REMOTE_DIR_result}\"\""
 
         ${cmd} </dev/null
         if [ $? -ne 0 ];then
@@ -92,9 +94,10 @@ _scp_file_to_remote_host()
 # $2: $USER
 # $3: $PASSWORD
 # $4: $file
-        cmd="sshpass -p$3 scp $4 $2@$1:${REMOTE_DIR}"
+# $5: $REMOTE_DIR
+        cmd="sshpass -p$3 scp $4 $2@$1:${5}"
 
-        $cmd
+        $cmd </dev/null
         if [ $? -ne 0 ];then
                 echo "_scp_file_to_remote_host to $1 as $2 with $3 copy $4 fail"
                 exit 1;
@@ -106,23 +109,23 @@ ssh_remote_scp()
 {
         # $1: file need to be transfered
         # $2: ipgroup file
+        # $3: remote postion (a path in remote)
         while read textline
         do
                 if [ "x" == "x${textline}" ] ;then
                         continue
                 fi
-                
                 IP=`echo $textline |  awk -F "," '{print $1}'`
                 USER=`echo $textline |  awk -F "," '{print $2}'`
                 PASSWORD=`echo $textline |  awk -F "," '{print $3}'`
                 echo $IP $USER $PASSWORD 
                 check_remote_disk_space $IP $USER $PASSWORD
                 _create_taskdir_to_remote_host $IP $USER $PASSWORD
-                _scp_file_to_remote_host $IP $USER $PASSWORD $1
+                _scp_file_to_remote_host $IP $USER $PASSWORD $1 $3
 
         done<$2
 }
-file_transfer()
+file_transfer_taskcase()
 {
 # $1: ${IPGROUP} file
 # $2: ${TASKLIST} file
@@ -130,8 +133,16 @@ for file in `cat $2`
 do
         file_valid_check "taskcase/${file}"
         if [ $? -eq 0 ];then
-                echo "taskcase/${file}"
-                ssh_remote_scp "taskcase/${file}" ${1}
+                ssh_remote_scp "taskcase/${file}" ${1} ${REMOTE_DIR_taskcase}
         fi
 done
+}
+file_transfer_tasklist()
+{
+# $1: ${IPGROUP} file
+# $2: ${TASKLIST} file
+        file_valid_check "${file}"
+        if [ $? -eq 0 ];then
+                ssh_remote_scp "${file}" ${1} ${REMOTE_DIR_tasklist}
+        fi
 }
