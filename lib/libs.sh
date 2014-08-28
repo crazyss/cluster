@@ -97,7 +97,14 @@ _scp_file_to_remote_host()
 # $3: $PASSWORD
 # $4: $file
 # $5: $REMOTE_DIR
+filelist=$(echo ${4} | tr ":" " ")
+wordnum=`echo ${filelist} | wc -w`
+
+if [ $wordnum -gt 1 ];then
+        cmd="sshpass -p$3 scp -r ${filelist} $2@$1:${5}"
+else
         cmd="sshpass -p$3 scp $4 $2@$1:${5}"
+fi
 
         $cmd </dev/null
         if [ $? -ne 0 ];then
@@ -109,9 +116,9 @@ _scp_file_to_remote_host()
 }
 ssh_remote_scp()
 {
-        # $1: file need to be transfered
-        # $2: ipgroup file
-        # $3: remote postion (a path in remote)
+# $1: file need to be transfered
+# $2: ipgroup file
+# $3: remote postion (a path in remote)
         while read textline
         do
                 if [ "x" == "x${textline}" ] ;then
@@ -120,10 +127,10 @@ ssh_remote_scp()
                 IP=`echo $textline |  awk -F "," '{print $1}'`
                 USER=`echo $textline |  awk -F "," '{print $2}'`
                 PASSWORD=`echo $textline |  awk -F "," '{print $3}'`
-                echo $IP $USER $PASSWORD 
+                echo $IP
                 check_remote_disk_space $IP $USER $PASSWORD
                 _create_taskdir_to_remote_host $IP $USER $PASSWORD
-                _scp_file_to_remote_host $IP $USER $PASSWORD $1 $3
+                _scp_file_to_remote_host $IP $USER $PASSWORD "$1" $3
 
         done<$2
 }
@@ -131,18 +138,22 @@ file_transfer_taskcase()
 {
 # $1: ${IPGROUP} file
 # $2: ${TASKLIST} file
-for file in `cat $2`
-do
-        file_valid_check "taskcase/${file}"
+filelist=
+        for file in `cat $2`
+        do
+                file_valid_check "taskcase/${file}"
+                filelist="taskcase/${file}:${filelist}"
+        done
+        echo "transfer these files '${filelist}' to:"
         if [ $? -eq 0 ];then
-                ssh_remote_scp "taskcase/${file}" ${1} ${REMOTE_DIR_taskcase}
+                ssh_remote_scp "${filelist}" ${1} ${REMOTE_DIR_taskcase}
         fi
-done
 }
 file_transfer_tasklist()
 {
 # $1: ${IPGROUP} file
 # $2: ${TASKLIST} file
+        echo "transfer tasklist to :"
         file_valid_check "$2"
         if [ $? -eq 0 ];then
                 ssh_remote_scp "${2}" ${1} ${REMOTE_DIR_tasklist}
@@ -152,6 +163,7 @@ file_transfer_engine()
 {
 # $1: ${IPGROUP} file
 # $2: ${TASKLIST} file
+        echo "transfer engine to :"
         file_valid_check "$2"
         if [ $? -eq 0 ];then
                 ssh_remote_scp "${2}" ${1} ${REMOTE_DIR_engine}
@@ -178,7 +190,7 @@ run_taskcase()
 {
         # $1: ${IPGROUP} file
         # $2: ${TASKLIST} file
-
+        echo "run taskcase at :"
         while read textline
         do
                 if [ "x" == "x${textline}" ] ;then
