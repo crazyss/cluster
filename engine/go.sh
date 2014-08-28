@@ -45,11 +45,11 @@ do
 done
 taskname=$(basename ${TASKFILE})
 
-pushd ${REMOTE_DIR}
+pushd ${REMOTE_DIR} >/dev/null
 while read task
 do
         if [ -x ${REMOTE_DIR_taskcase}/${task} ]; then
                 ${REMOTE_DIR_taskcase}/${task} 2>&1 >result/${taskname}-${task}-`date +"%Y-%m-%d-%H:%M:%S"`.log
         fi
 done <${TASKFILE}
-popd
+popd >/dev/null
